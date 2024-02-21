@@ -2,8 +2,13 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using src.Data;
 using src.Domain;
+using src.Middlewares;
+using src.Provider;
 
 var builder = WebApplication.CreateBuilder(args);
+
+builder.Services.AddScoped<TenantData>();
+
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
@@ -20,9 +25,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-DatabaseInitialize(app);
 app.UseHttpsRedirection();
 
+app.UseMiddleware<TenantMiddleware>();
 
 app.MapGet("/person", ([FromServices] ApplicationContext db) =>
 {
@@ -44,21 +49,4 @@ app.MapGet("/product", ([FromServices] ApplicationContext db) =>
 
 app.Run();
 
-void DatabaseInitialize(IApplicationBuilder app)
-{
-    using var db = app.ApplicationServices
-        .CreateScope()
-        .ServiceProvider
-        .GetRequiredService<ApplicationContext>();
 
-    db.Database.EnsureDeleted();
-    db.Database.EnsureCreated();
-
-    for (var i = 1; i <= 5; i++)
-    {
-        db.People.Add(new Person { Name = $"Person {i}" });
-        db.Products.Add(new Product { Description = $"Product {i}" });
-    }
-
-    db.SaveChanges();
-}
