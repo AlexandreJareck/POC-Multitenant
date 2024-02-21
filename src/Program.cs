@@ -1,44 +1,64 @@
-var builder = WebApplication.CreateBuilder(args);
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using src.Data;
+using src.Domain;
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddDbContext<ApplicationContext>(p => p
+.UseSqlServer("Server=JARECK\\SQLEXPRESS;Database=Multitenant01;Integrated Security=true;pooling=true;TrustServerCertificate=True")
+.LogTo(Console.WriteLine)
+.EnableSensitiveDataLogging());
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
     app.UseSwaggerUI();
 }
 
+DatabaseInitialize(app);
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("/person", ([FromServices] ApplicationContext db) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
+    var person = db.People.ToArray();
+
+    return person;
 })
-.WithName("GetWeatherForecast")
+.WithName("GetPerson")
+.WithOpenApi();
+
+app.MapGet("/product", ([FromServices] ApplicationContext db) =>
+{
+    var product = db.Products.ToArray();
+
+    return product;
+})
+.WithName("GetProduct")
 .WithOpenApi();
 
 app.Run();
 
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
+void DatabaseInitialize(IApplicationBuilder app)
 {
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
+    using var db = app.ApplicationServices
+        .CreateScope()
+        .ServiceProvider
+        .GetRequiredService<ApplicationContext>();
+
+    db.Database.EnsureDeleted();
+    db.Database.EnsureCreated();
+
+    for (var i = 1; i <= 5; i++)
+    {
+        db.People.Add(new Person { Name = $"Person {i}" });
+        db.Products.Add(new Product { Description = $"Product {i}" });
+    }
+
+    db.SaveChanges();
 }
