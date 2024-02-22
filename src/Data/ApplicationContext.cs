@@ -1,5 +1,6 @@
 using Microsoft.EntityFrameworkCore;
 using src.Domain;
+using src.Provider;
 
 namespace src.Data;
 
@@ -8,9 +9,11 @@ public class ApplicationContext : DbContext
     public DbSet<Person> People { get; set; }
     public DbSet<Product> Products { get; set; }
 
-    public ApplicationContext(DbContextOptions<ApplicationContext> options) : base(options)
-    {
+    public readonly TenantData _tenantData;
 
+    public ApplicationContext(DbContextOptions<ApplicationContext> options, TenantData tenant) : base(options)
+    {
+        _tenantData = tenant;
     }
 
     protected override void OnModelCreating(ModelBuilder modelBuilder)
@@ -24,5 +27,9 @@ public class ApplicationContext : DbContext
             new Product { Id = 1, Description = "Description 1", TenantId = "tenant-1" },
             new Product { Id = 2, Description = "Description 2", TenantId = "tenant-2" },
             new Product { Id = 3, Description = "Description 3", TenantId = "tenant-2" });
+
+
+        modelBuilder.Entity<Person>().HasQueryFilter(p => p.TenantId == _tenantData.TenantId);
+        modelBuilder.Entity<Product>().HasQueryFilter(p => p.TenantId == _tenantData.TenantId);
     }
 }

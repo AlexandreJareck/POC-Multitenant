@@ -29,7 +29,7 @@ app.UseHttpsRedirection();
 
 app.UseMiddleware<TenantMiddleware>();
 
-app.MapGet("/person", ([FromServices] ApplicationContext db) =>
+app.MapGet("{tenant}/person", ([FromServices] ApplicationContext db) =>
 {
     var person = db.People.ToArray();
 
@@ -38,7 +38,7 @@ app.MapGet("/person", ([FromServices] ApplicationContext db) =>
 .WithName("GetPerson")
 .WithOpenApi();
 
-app.MapGet("/product", ([FromServices] ApplicationContext db) =>
+app.MapGet("{tenant}/product", ([FromServices] ApplicationContext db) =>
 {
     var product = db.Products.ToArray();
 
