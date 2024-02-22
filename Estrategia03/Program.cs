@@ -1,13 +1,36 @@
+using Estrategia03.Data;
+using Estrategia03.Data.Interceptors;
+using Estrategia03.Middlewares;
+using Estrategia02.Provider;
+using Microsoft.AspNetCore.Mvc;
+using Microsoft.EntityFrameworkCore;
+using Estrategia03.Extensions;
+
 var builder = WebApplication.CreateBuilder(args);
 
-// Add services to the container.
-// Learn more about configuring Swagger/OpenAPI at https://aka.ms/aspnetcore/swashbuckle
+builder.Services.AddHttpContextAccessor();
+builder.Services.AddScoped<TenantData>();
+builder.Services.AddScoped<StrategySchemaInterceptor>();
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen();
 
+builder.Services.AddScoped<ApplicationContext>(provider =>
+{
+    var optionsBuilder = new DbContextOptionsBuilder<ApplicationContext>();
+    var httpContext = provider.GetService<IHttpContextAccessor>()?.HttpContext;
+    var tenantId = httpContext?.GetTenantId();
+    var connectionString = builder.Configuration.GetConnectionString(tenantId!);
+
+    optionsBuilder
+        .UseSqlServer(connectionString)
+        .LogTo(Console.WriteLine)
+        .EnableSensitiveDataLogging();
+
+    return new ApplicationContext(optionsBuilder.Options);
+});
+
 var app = builder.Build();
 
-// Configure the HTTP request pipeline.
 if (app.Environment.IsDevelopment())
 {
     app.UseSwagger();
@@ -16,29 +39,24 @@ if (app.Environment.IsDevelopment())
 
 app.UseHttpsRedirection();
 
-var summaries = new[]
-{
-    "Freezing", "Bracing", "Chilly", "Cool", "Mild", "Warm", "Balmy", "Hot", "Sweltering", "Scorching"
-};
+app.UseMiddleware<TenantMiddleware>();
 
-app.MapGet("/weatherforecast", () =>
+app.MapGet("{tenant}/person", ([FromServices] ApplicationContext db) =>
 {
-    var forecast =  Enumerable.Range(1, 5).Select(index =>
-        new WeatherForecast
-        (
-            DateOnly.FromDateTime(DateTime.Now.AddDays(index)),
-            Random.Shared.Next(-20, 55),
-            summaries[Random.Shared.Next(summaries.Length)]
-        ))
-        .ToArray();
-    return forecast;
+    var person = db.People.ToArray();
+
+    return person;
 })
-.WithName("GetWeatherForecast")
+.WithName("GetPerson")
+.WithOpenApi();
+
+app.MapGet("{tenant}/product", ([FromServices] ApplicationContext db) =>
+{
+    var product = db.Products.ToArray();
+
+    return product;
+})
+.WithName("GetProduct")
 .WithOpenApi();
 
 app.Run();
-
-record WeatherForecast(DateOnly Date, int TemperatureC, string? Summary)
-{
-    public int TemperatureF => 32 + (int)(TemperatureC / 0.5556);
-}
